@@ -4,52 +4,55 @@ import gradio as gr
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "phi3:3.8b"
 
-def chat_response(user_input: str, history: list) -> str:
+def chat_response(message: str, history: list) -> str:
     """Generate response using Phi 3.8B"""
     
-    # Build chat context
-    messages = ""
+    # Build simple conversation context
+    context = ""
     for user_msg, bot_msg in history[-3:]:  # Last 3 exchanges
-        messages += f"User: {user_msg}\nAssistant: {bot_msg}\n"
+        context += f"User: {user_msg}\nBot: {bot_msg}\n"
     
-    full_prompt = messages + f"User: {user_input}\nAssistant:"
+    prompt = context + f"User: {message}\nBot:"
     
     try:
         response = requests.post(
             OLLAMA_API_URL,
             json={
                 "model": MODEL_NAME,
-                "prompt": full_prompt,
+                "prompt": prompt,
                 "stream": False,
                 "temperature": 0.7,
             },
-            timeout=60
+            timeout=120
         )
         
         if response.status_code == 200:
-            return response.json()["response"]
+            return response.json()["response"].strip()
         else:
-            return "Error connecting to model"
+            return f"Error: Could not get response (status {response.status_code})"
+    
     except Exception as e:
         return f"Error: {str(e)}"
 
-def update_chat(user_input: str, history):
-    """Update chat with new response"""
-    bot_response = chat_response(user_input, history)
-    history.append([user_input, bot_response])
-    return history, ""
-
-# Build Gradio interface
-with gr.Blocks(title="Phi 3.8B Chat") as demo:
-    gr.Markdown("# 💬 Phi 3.8B Chatbot")
-    gr.Markdown("Simple local chatbot with Phi 3.8B")
+# Simple Gradio interface
+with gr.Blocks(title="Phi 3.8B Chatbot") as demo:
+    gr.Markdown("# 🤖 Phi 3.8B Local Chatbot\n**Model:** phi3:3.8b | **GPU:** RTX 3050")
     
-    chatbot = gr.Chatbot(label="Chat", height=400)
-    msg = gr.Textbox(label="Your message", lines=2)
-    clear = gr.Button("Clear")
+    chatbot = gr.Chatbot(height=400, type="tuples")
+    msg = gr.Textbox(label="Your message", placeholder="Type here...", lines=2)
     
-    msg.submit(update_chat, inputs=[msg, chatbot], outputs=[chatbot, msg])
-    clear.click(lambda: ([], ""), outputs=[chatbot, msg])
+    with gr.Row():
+        send_btn = gr.Button("Send", variant="primary")
+        clear_btn = gr.Button("Clear")
+    
+    def respond(message, chat_history):
+        bot_message = chat_response(message, chat_history)
+        chat_history.append((message, bot_message))
+        return "", chat_history
+    
+    msg.submit(respond, [msg, chatbot], [msg, chatbot])
+    send_btn.click(respond, [msg, chatbot], [msg, chatbot])
+    clear_btn.click(lambda: ([], ""), outputs=[chatbot, msg])
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="localhost", server_port=7860)
