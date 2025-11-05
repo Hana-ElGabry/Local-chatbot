@@ -1,4 +1,4 @@
-1. ollama pull phi3:3.8b
+1.  pull the model from ollama
 ```
-ollama pull mistral:7b-instruct-q4_k_m
+ollama pull phi3:3.8b
 ```
