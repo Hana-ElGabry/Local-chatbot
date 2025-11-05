@@ -2,17 +2,17 @@ import requests
 import gradio as gr
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "phi3:3.8b"
+MODEL_NAME = "starcoder2:3b"
 
 def chat_response(message: str, history: list) -> str:
-    """Generate response using Phi 3.8B"""
+    """Generate response using StarCoder2 3B"""
     
-    # Build simple conversation context
     context = ""
-    for user_msg, bot_msg in history[-3:]:  # Last 3 exchanges
-        context += f"User: {user_msg}\nBot: {bot_msg}\n"
+    for user_msg, bot_msg in history[-2:]:
+        context += f"User: {user_msg}\nAssistant: {bot_msg}\n\n"
     
-    prompt = context + f"User: {message}\nBot:"
+    prompt = f"""{context}User: {message}
+Assistant:"""
     
     try:
         response = requests.post(
@@ -21,7 +21,8 @@ def chat_response(message: str, history: list) -> str:
                 "model": MODEL_NAME,
                 "prompt": prompt,
                 "stream": False,
-                "temperature": 0.7,
+                "temperature": 0.5,
+                "top_p": 0.9,
             },
             timeout=120
         )
@@ -29,17 +30,17 @@ def chat_response(message: str, history: list) -> str:
         if response.status_code == 200:
             return response.json()["response"].strip()
         else:
-            return f"Error: Could not get response (status {response.status_code})"
+            return f"Error: Status {response.status_code}"
     
     except Exception as e:
         return f"Error: {str(e)}"
 
-# Simple Gradio interface
-with gr.Blocks(title="Phi 3.8B Chatbot") as demo:
-    gr.Markdown("# 🤖 Phi 3.8B Local Chatbot\n**Model:** phi3:3.8b | **GPU:** RTX 3050")
+# Build interface
+with gr.Blocks(title="StarCoder2 3B") as demo:
+    gr.Markdown("# 💻 StarCoder2 3B Code Assistant\n**Model:** starcoder2:3b | **GPU:** RTX 3050")
     
-    chatbot = gr.Chatbot(height=400, type="tuples")
-    msg = gr.Textbox(label="Your message", placeholder="Type here...", lines=2)
+    chatbot = gr.Chatbot(height=450, type="tuples")
+    msg = gr.Textbox(label="Ask for code", placeholder="Type your coding question...", lines=2)
     
     with gr.Row():
         send_btn = gr.Button("Send", variant="primary")
@@ -55,4 +56,4 @@ with gr.Blocks(title="Phi 3.8B Chatbot") as demo:
     clear_btn.click(lambda: ([], ""), outputs=[chatbot, msg])
 
 if __name__ == "__main__":
-    demo.launch(server_name="localhost", server_port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
